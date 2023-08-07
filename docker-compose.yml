@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+
+  roach1:
+    container_name: roach1
+    hostname: roach1
+    image: cockroachdb/cockroach:latest
+    command: start --cluster-name=cockroach-compose-lb  --insecure --join=roach1,roach2,roach3
+
+  roach2:
+    container_name: roach2
+    hostname: roach2
+    image: cockroachdb/cockroach:latest
+    command: start --cluster-name=cockroach-compose-lb  --insecure --join=roach1,roach2,roach3
+    depends_on:
+      - roach1
+
+  roach3:
+    container_name: roach3
+    hostname: roach3
+    image: cockroachdb/cockroach:latest
+    command: start --cluster-name=cockroach-compose-lb  --insecure --join=roach1,roach2,roach3
+    depends_on:
+      - roach1
+
+  lb:
+    container_name: lb
+    hostname: lb
+    image: timveil/dynamic-haproxy:latest
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - NODES=roach1 roach2 roach3
+    depends_on:
+      - roach1
+      - roach2
+      - roach3
+
+  roach-init:
+    container_name: roach-init
+    hostname: roach-init
+    image: timveil/cockroachdb-remote-client:latest
+    environment:
+      - COCKROACH_HOST=roach1:26257
+      - COCKROACH_INSECURE=true
+      - COCKROACH_INIT=true
+      - DATABASE_NAME=test
+    depends_on:
+      - lb
